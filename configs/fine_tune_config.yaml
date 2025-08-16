@@ -1,0 +1,205 @@
+# Fine-tuning Configuration for DAPT-Adapted Arabic Dialect Sentiment Analysis
+
+# Model configuration
+model:
+  # Base model (DAPT-adapted)
+  base_model_path: "models/dapt/checkpoint-50000"
+  # Alternative: use original pretrained model
+  # base_model_name: "aubmindlab/bert-base-arabertv2"
+  
+  # Model architecture
+  num_labels: 3  # Positive, Negative, Neutral
+  hidden_dropout_prob: 0.1
+  attention_probs_dropout_prob: 0.1
+  
+  # Load pretrained weights
+  load_pretrained: true
+  freeze_embeddings: false
+  freeze_layers: []  # List of layer indices to freeze
+  
+  # Classification head
+  classification_head: "linear"  # "linear", "mlp", "attention"
+  hidden_size: 768
+  intermediate_size: 512
+
+# Training parameters
+training:
+  # Basic training settings
+  batch_size: 16
+  gradient_accumulation_steps: 4
+  effective_batch_size: 64
+  
+  # Learning rate
+  learning_rate: 2e-5
+  warmup_steps: 500
+  warmup_ratio: 0.1
+  max_learning_rate: 5e-5
+  
+  # Training duration
+  num_epochs: 10
+  max_steps: 20000
+  save_steps: 1000
+  eval_steps: 500
+  
+  # Optimization
+  optimizer: "adamw"
+  weight_decay: 0.01
+  adam_beta1: 0.9
+  adam_beta2: 0.999
+  adam_epsilon: 1e-8
+  
+  # Learning rate scheduling
+  lr_scheduler: "cosine"
+  cosine_schedule_with_warmup: true
+  
+  # Gradient clipping
+  max_grad_norm: 1.0
+  
+  # Mixed precision
+  use_amp: true
+  fp16: false
+  bf16: false
+
+# Data configuration
+data:
+  # Dataset paths
+  train_data_path: "data/processed/train_data.csv"
+  val_data_path: "data/processed/val_data.csv"
+  test_data_path: "data/processed/test_data.csv"
+  
+  # Text preprocessing
+  preprocessing:
+    normalize_arabic: true
+    remove_tashkeel: false
+    normalize_arabic_numbers: true
+    remove_urls: true
+    remove_emails: true
+    remove_english: false
+    max_length: 512
+    min_length: 3
+    
+  # Tokenization
+  tokenization:
+    max_length: 512
+    truncation: true
+    padding: "max_length"
+    return_tensors: "pt"
+    
+  # Data loading
+  num_workers: 4
+  pin_memory: true
+  prefetch_factor: 2
+  
+  # Augmentation
+  augmentation:
+    enabled: false
+    methods: ["synonym_replacement", "back_translation"]
+    augmentation_ratio: 0.1
+
+# Loss and evaluation
+loss:
+  # Loss function
+  loss_type: "cross_entropy"  # "cross_entropy", "focal", "label_smoothing"
+  
+  # Class weights for imbalanced data
+  use_class_weights: true
+  class_weight_method: "balanced"
+  
+  # Label smoothing
+  label_smoothing: 0.1
+  
+  # Focal loss parameters
+  focal_alpha: 1.0
+  focal_gamma: 2.0
+
+# Evaluation
+evaluation:
+  # Metrics
+  metrics: ["accuracy", "precision", "recall", "f1", "f1_macro", "f1_weighted"]
+  
+  # Evaluation frequency
+  eval_strategy: "steps"
+  eval_steps: 500
+  
+  # Save best model
+  save_best_model: true
+  metric_for_best_model: "eval_f1_macro"
+  greater_is_better: true
+  
+  # Early stopping
+  early_stopping_patience: 5
+  early_stopping_min_delta: 0.001
+  
+  # Cross-validation
+  use_cross_validation: false
+  cv_folds: 5
+
+# Output and logging
+output:
+  # Model saving
+  output_dir: "models/fine_tuned"
+  save_total_limit: 3
+  save_strategy: "steps"
+  
+  # Logging
+  logging_dir: "logs/fine_tuning"
+  logging_steps: 100
+  
+  # Tensorboard
+  use_tensorboard: true
+  tensorboard_log_dir: "logs/tensorboard/fine_tuning"
+  
+  # Wandb (optional)
+  use_wandb: false
+  wandb_project: "arabic-dialect-sentiment"
+  wandb_entity: null
+  wandb_run_name: "gulf_arabic_sentiment_fine_tuned"
+  
+  # Results
+  results_save_path: "results/fine_tuning_results.csv"
+  predictions_save_path: "results/predictions.csv"
+
+# Hardware configuration
+hardware:
+  device: "auto"  # "auto", "cpu", "cuda", "mps"
+  num_gpus: "auto"
+  distributed_training: false
+  local_rank: -1
+  
+  # Memory optimization
+  gradient_checkpointing: false
+  dataloader_pin_memory: true
+  
+  # Mixed precision
+  use_amp: true
+  fp16_full_eval: false
+
+# Random seeds
+random_seed: 42
+numpy_seed: 42
+torch_seed: 42
+transformers_seed: 42
+
+# Checkpointing
+checkpointing:
+  save_strategy: "steps"
+  save_steps: 1000
+  save_total_limit: 3
+  
+  # Resume from checkpoint
+  resume_from_checkpoint: null
+  overwrite_output_dir: false
+
+# Model interpretability
+interpretability:
+  # Attention visualization
+  save_attention_weights: true
+  attention_output_dir: "results/attention_weights"
+  
+  # Feature importance
+  save_feature_importance: true
+  feature_importance_method: "integrated_gradients"
+  
+  # Saliency maps
+  save_saliency_maps: true
+  saliency_output_dir: "results/saliency_maps"

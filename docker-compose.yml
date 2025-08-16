@@ -1,0 +1,193 @@
+version: '3.8'
+
+services:
+  # Backend API service
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: backend
+    container_name: arabic-sentiment-backend
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data:/app/data
+      - ./models:/app/models
+      - ./logs:/app/logs
+      - ./results:/app/results
+    environment:
+      - PYTHONPATH=/app
+      - LOG_LEVEL=INFO
+      - MODEL_CACHE_DIR=/app/models
+    command: uvicorn src.webapp.backend.main:app --host 0.0.0.0 --port 8000 --reload
+    networks:
+      - arabic-sentiment-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Frontend service (development)
+  frontend-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: frontend
+    container_name: arabic-sentiment-frontend-dev
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./webapp/frontend:/app
+      - /app/node_modules
+    working_dir: /app
+    command: npm start
+    environment:
+      - REACT_APP_API_URL=http://localhost:8000
+      - CHOKIDAR_USEPOLLING=true
+    networks:
+      - arabic-sentiment-network
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  # Production frontend (served by nginx)
+  frontend-prod:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: frontend
+    container_name: arabic-sentiment-frontend-prod
+    ports:
+      - "80:80"
+    volumes:
+      - ./webapp/frontend/build:/usr/share/nginx/html
+    networks:
+      - arabic-sentiment-network
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  # Redis for caching (optional)
+  redis:
+    image: redis:7-alpine
+    container_name: arabic-sentiment-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - arabic-sentiment-network
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+
+  # PostgreSQL for data storage (optional)
+  postgres:
+    image: postgres:15-alpine
+    container_name: arabic-sentiment-postgres
+    environment:
+      POSTGRES_DB: arabic_sentiment
+      POSTGRES_USER: arabic_user
+      POSTGRES_PASSWORD: arabic_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - arabic-sentiment-network
+    restart: unless-stopped
+
+  # Jupyter notebook for data exploration
+  jupyter:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: backend
+    container_name: arabic-sentiment-jupyter
+    ports:
+      - "8888:8888"
+    volumes:
+      - ./notebooks:/app/notebooks
+      - ./data:/app/data
+      - ./models:/app/models
+    working_dir: /app
+    command: jupyter lab --ip=0.0.0.0 --port=8888 --no-browser --allow-root --NotebookApp.token='' --NotebookApp.password=''
+    environment:
+      - PYTHONPATH=/app
+      - JUPYTER_ENABLE_LAB=yes
+    networks:
+      - arabic-sentiment-network
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+  # TensorBoard for training visualization
+  tensorboard:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: backend
+    container_name: arabic-sentiment-tensorboard
+    ports:
+      - "6006:6006"
+    volumes:
+      - ./logs:/app/logs
+    working_dir: /app
+    command: tensorboard --logdir=logs --host=0.0.0.0 --port=6006
+    networks:
+      - arabic-sentiment-network
+    restart: unless-stopped
+
+  # Monitoring with Prometheus and Grafana
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: arabic-sentiment-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./docker/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+    networks:
+      - arabic-sentiment-network
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: arabic-sentiment-grafana
+    ports:
+      - "3001:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./docker/grafana/dashboards:/etc/grafana/provisioning/dashboards
+      - ./docker/grafana/datasources:/etc/grafana/provisioning/datasources
+    networks:
+      - arabic-sentiment-network
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+
+volumes:
+  redis_data:
+  postgres_data:
+  prometheus_data:
+  grafana_data:
+
+networks:
+  arabic-sentiment-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16

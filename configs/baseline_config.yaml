@@ -1,0 +1,114 @@
+# Baseline Model Configuration for Arabic Dialect Sentiment Analysis
+
+# Model types to train
+models:
+  traditional_ml:
+    enabled: true
+    models: ["logistic_regression", "random_forest", "svm", "naive_bayes"]
+    
+  transformer_baseline:
+    enabled: true
+    model_name: "aubmindlab/bert-base-arabertv2"
+    # Alternative models to try:
+    # - "CAMeL-Lab/bert-base-arabic-camelbert-mix"
+    # - "microsoft/DialoGPT-medium-arabic"
+    # - "asafaya/bert-base-arabic"
+
+# Training parameters
+training:
+  batch_size: 16
+  learning_rate: 2e-5
+  num_epochs: 5
+  warmup_steps: 100
+  weight_decay: 0.01
+  gradient_accumulation_steps: 4
+  
+  # Early stopping
+  early_stopping_patience: 3
+  early_stopping_min_delta: 0.001
+  
+  # Learning rate scheduling
+  lr_scheduler: "linear"
+  warmup_ratio: 0.1
+
+# Data parameters
+data:
+  max_length: 512
+  train_batch_size: 16
+  eval_batch_size: 32
+  
+  # Augmentation
+  text_augmentation: false
+  augmentation_methods: ["synonym_replacement", "back_translation"]
+  
+  # Class weights for imbalanced data
+  use_class_weights: true
+  class_weight_method: "balanced"
+
+# Traditional ML specific
+traditional_ml:
+  # Feature extraction
+  feature_extraction: "tfidf"
+  max_features: 10000
+  ngram_range: [1, 3]
+  
+  # Cross-validation
+  cv_folds: 5
+  cv_scoring: "f1_macro"
+  
+  # Hyperparameter tuning
+  grid_search: true
+  param_grids:
+    logistic_regression:
+      C: [0.1, 1.0, 10.0]
+      penalty: ["l1", "l2"]
+    random_forest:
+      n_estimators: [100, 200, 300]
+      max_depth: [10, 20, None]
+    svm:
+      C: [0.1, 1.0, 10.0]
+      kernel: ["linear", "rbf"]
+
+# Evaluation
+evaluation:
+  metrics: ["accuracy", "precision", "recall", "f1", "f1_macro"]
+  save_predictions: true
+  confusion_matrix: true
+  classification_report: true
+  
+  # Cross-validation
+  use_cross_validation: true
+  cv_folds: 5
+  
+  # Test set evaluation
+  test_set_evaluation: true
+
+# Output and logging
+output:
+  model_save_path: "models/baselines"
+  results_save_path: "results/baseline_results.csv"
+  log_dir: "logs/baselines"
+  
+  # Tensorboard
+  use_tensorboard: true
+  tensorboard_log_dir: "logs/tensorboard"
+  
+  # Wandb (optional)
+  use_wandb: false
+  wandb_project: "arabic-dialect-sentiment"
+  wandb_entity: null
+
+# Hardware
+hardware:
+  device: "auto"  # "auto", "cpu", "cuda", "mps"
+  num_workers: 4
+  pin_memory: true
+  
+  # Mixed precision
+  use_amp: false
+  fp16: false
+
+# Random seeds
+random_seed: 42
+numpy_seed: 42
+torch_seed: 42

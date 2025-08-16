@@ -1,0 +1,74 @@
+# Data Configuration for Arabic Dialect Sentiment Analysis
+
+# Data paths
+data:
+  raw_data_path: "data/raw"
+  processed_data_path: "data/processed"
+  external_data_path: "data/external"
+  
+  # Dataset files
+  gumar_corpus_path: "data/external/gumar_corpus"
+  sentiment_dataset_path: "data/raw/sentiment_dataset.csv"
+  
+  # Output files
+  cleaned_text_path: "data/processed/cleaned_text.csv"
+  tokenized_data_path: "data/processed/tokenized_data"
+  train_data_path: "data/processed/train_data.csv"
+  val_data_path: "data/processed/val_data.csv"
+  test_data_path: "data/processed/test_data.csv"
+
+# Text preprocessing
+preprocessing:
+  # Text cleaning
+  remove_urls: true
+  remove_emails: true
+  remove_numbers: false
+  remove_english: false
+  remove_emojis: false
+  
+  # Arabic-specific cleaning
+  normalize_arabic: true
+  remove_tashkeel: false  # Keep diacritics for better understanding
+  normalize_arabic_numbers: true
+  
+  # Text normalization
+  lowercase: false  # Arabic is case-insensitive
+  max_length: 512
+  min_length: 3
+  
+  # Special characters
+  remove_special_chars: false
+  keep_arabic_punctuation: true
+
+# Tokenization
+tokenization:
+  model_name: "aubmindlab/bert-base-arabertv2"
+  max_length: 512
+  truncation: true
+  padding: true
+  return_tensors: "pt"
+  
+  # Special tokens
+  add_special_tokens: true
+  return_attention_mask: true
+  return_token_type_ids: false
+
+# Dataset splitting
+splitting:
+  train_ratio: 0.7
+  val_ratio: 0.15
+  test_ratio: 0.15
+  random_seed: 42
+  stratify: true
+
+# Data validation
+validation:
+  min_samples_per_class: 10
+  max_class_imbalance: 0.8
+  required_columns: ["text", "label", "dialect"]
+  
+# Logging
+logging:
+  level: "INFO"
+  save_preprocessing_stats: true
+  stats_output_path: "data/processed/preprocessing_stats.json"

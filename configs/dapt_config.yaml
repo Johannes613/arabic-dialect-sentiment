@@ -1,0 +1,174 @@
+# Domain-Adaptive Pretraining (DAPT) Configuration for Gulf Arabic
+
+# Base model configuration
+base_model:
+  model_name: "aubmindlab/bert-base-arabertv2"
+  # Alternative base models:
+  # - "CAMeL-Lab/bert-base-arabic-camelbert-mix"
+  # - "microsoft/DialoGPT-medium-arabic"
+  # - "asafaya/bert-base-arabic"
+  
+  # Model architecture
+  hidden_size: 768
+  num_hidden_layers: 12
+  num_attention_heads: 12
+  intermediate_size: 3072
+  vocab_size: 32000
+  
+  # Load pretrained weights
+  load_pretrained: true
+  freeze_embeddings: false
+  freeze_layers: []  # List of layer indices to freeze
+
+# DAPT training parameters
+training:
+  # Corpus configuration
+  corpus:
+    gumar_corpus_path: "data/external/gumar_corpus"
+    max_corpus_size: 1000000  # Maximum number of sentences to use
+    min_sentence_length: 10
+    max_sentence_length: 512
+    
+  # Training hyperparameters
+  batch_size: 16
+  gradient_accumulation_steps: 4
+  effective_batch_size: 64
+  
+  # Learning rate
+  learning_rate: 5e-5
+  warmup_steps: 1000
+  warmup_ratio: 0.1
+  max_learning_rate: 1e-4
+  
+  # Training duration
+  num_epochs: 3
+  max_steps: 50000
+  save_steps: 5000
+  eval_steps: 2500
+  
+  # Optimization
+  optimizer: "adamw"
+  weight_decay: 0.01
+  adam_beta1: 0.9
+  adam_beta2: 0.999
+  adam_epsilon: 1e-8
+  
+  # Learning rate scheduling
+  lr_scheduler: "cosine"
+  cosine_schedule_with_warmup: true
+  
+  # Gradient clipping
+  max_grad_norm: 1.0
+  
+  # Mixed precision
+  use_amp: true
+  fp16: false
+  bf16: false
+
+# Data processing
+data:
+  # Text preprocessing
+  preprocessing:
+    normalize_arabic: true
+    remove_tashkeel: false
+    normalize_arabic_numbers: true
+    remove_urls: true
+    remove_emails: true
+    remove_english: false
+    
+  # Tokenization
+  tokenization:
+    max_length: 512
+    truncation: true
+    padding: "max_length"
+    return_tensors: "pt"
+    
+  # Data loading
+  num_workers: 4
+  pin_memory: true
+  prefetch_factor: 2
+
+# Masked Language Modeling (MLM)
+mlm:
+  mlm_probability: 0.15
+  replace_probability: 0.8
+  random_probability: 0.1
+  keep_probability: 0.1
+  
+  # Special token handling
+  mask_arabic_tokens: true
+  mask_dialect_specific: true
+  
+  # Dynamic masking
+  dynamic_masking: true
+  max_predictions_per_seq: 80
+
+# Evaluation during training
+evaluation:
+  # Evaluation metrics
+  metrics: ["perplexity", "accuracy"]
+  
+  # Evaluation dataset
+  eval_dataset_size: 10000
+  eval_batch_size: 32
+  
+  # Save best model
+  save_best_model: true
+  metric_for_best_model: "eval_loss"
+  greater_is_better: false
+  
+  # Early stopping
+  early_stopping_patience: 3
+  early_stopping_min_delta: 0.001
+
+# Output and logging
+output:
+  # Model saving
+  output_dir: "models/dapt"
+  save_total_limit: 3
+  save_strategy: "steps"
+  
+  # Logging
+  logging_dir: "logs/dapt"
+  logging_steps: 100
+  
+  # Tensorboard
+  use_tensorboard: true
+  tensorboard_log_dir: "logs/tensorboard/dapt"
+  
+  # Wandb (optional)
+  use_wandb: false
+  wandb_project: "arabic-dialect-dapt"
+  wandb_entity: null
+  wandb_run_name: "gulf_arabic_dapt"
+
+# Hardware configuration
+hardware:
+  device: "auto"  # "auto", "cpu", "cuda", "mps"
+  num_gpus: "auto"
+  distributed_training: false
+  local_rank: -1
+  
+  # Memory optimization
+  gradient_checkpointing: false
+  dataloader_pin_memory: true
+  
+  # Mixed precision
+  use_amp: true
+  fp16_full_eval: false
+
+# Random seeds
+random_seed: 42
+numpy_seed: 42
+torch_seed: 42
+transformers_seed: 42
+
+# Checkpointing
+checkpointing:
+  save_strategy: "steps"
+  save_steps: 5000
+  save_total_limit: 3
+  
+  # Resume from checkpoint
+  resume_from_checkpoint: null
+  overwrite_output_dir: false
