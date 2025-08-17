@@ -95,7 +95,8 @@ class ASTDDataLoader:
         Returns:
             List of line indices (0-based)
         """
-        split_file = self.data_dir / f"{split_name}.txt"
+        # Look for split files in raw directory
+        split_file = self.data_dir / "raw" / f"{split_name}.txt"
         
         if not split_file.exists():
             raise FileNotFoundError(f"Split file not found: {split_file}")

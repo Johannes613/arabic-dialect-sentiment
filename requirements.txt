@@ -51,5 +51,3 @@ emoji>=2.8.0
 evaluate>=0.4.0
 rouge-score>=0.1.2
 
-# Optional: GPU Support
-# nvidia-ml-py3>=7.352.0

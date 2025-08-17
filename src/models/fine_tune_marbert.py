@@ -23,7 +23,11 @@ import torch
 import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
 from torch.optim import AdamW
-from torch.optim.lr_scheduler import get_linear_schedule_with_warmup
+try:
+    from torch.optim.lr_scheduler import get_linear_schedule_with_warmup
+except ImportError:
+    # For newer PyTorch versions
+    from torch.optim.lr_scheduler import LambdaLR as get_linear_schedule_with_warmup
 from sklearn.metrics import classification_report, f1_score, accuracy_score
 from sklearn.model_selection import train_test_split
 import matplotlib.pyplot as plt
