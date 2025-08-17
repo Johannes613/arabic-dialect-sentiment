@@ -277,7 +277,7 @@ cd arabic-dialect-sentiment</code></pre>
   <pre style="background-color: #f2f2f2; padding: 15px; border-radius: 4px; font-size: 12px;">
 @misc{arabic_dialect_sentiment_2024,
   title={Enhanced MARBERT for Arabic Dialect Sentiment Analysis},
-  author={Your Name},
+  author={Yohannis Adamu},
   year={2024},
   url={https://github.com/Johannes613/arabic-dialect-sentiment}
 }
