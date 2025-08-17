@@ -2,7 +2,6 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Arabic Dialect Sentiment Analysis - Enhanced MARBERT Model</title>
 </head>
 <body style="font-family: Arial, sans-serif; line-height: 1.6; max-width: 1000px; margin: auto; padding: 20px;">
 
