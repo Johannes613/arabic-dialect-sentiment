@@ -48,6 +48,75 @@ arabic-dialect-sentiment/
 - **Containerization**: Docker
 
 ## Quick Start
+# Data Folder Structure
+
+This folder contains the Arabic Sentiment Tweets Dataset (ASTD) and related data files.
+
+## File Structure
+
+```
+data/
+├── README.md                    # This file - data documentation
+├── Tweets.txt                   # Main dataset with tweet text and sentiment labels
+├── 4class-balanced-train.txt    # Balanced training set line indices
+├── 4class-balanced-validation.txt # Balanced validation set line indices  
+├── 4class-balanced-test.txt     # Balanced test set line indices
+├── 4class-unbalanced-train.txt  # Unbalanced training set line indices
+├── 4class-unbalanced-validation.txt # Unbalanced validation set line indices
+├── 4class-unbalanced-test.txt   # Unbalanced test set line indices
+├── external/                     # External datasets (if any)
+├── processed/                    # Processed datasets (cleaned, tokenized)
+└── raw/                         # Raw data backups
+```
+
+## Dataset Description
+
+### ASTD (Arabic Sentiment Tweets Dataset)
+
+The main dataset file `Tweets.txt` contains Arabic tweets with sentiment labels:
+
+- **Format**: Tab-separated values (TSV)
+- **Columns**: 
+  - Tweet text (Arabic)
+  - Sentiment label
+- **Labels**:
+  - `POS`: Positive sentiment
+  - `NEG`: Negative sentiment  
+  - `NEUTRAL`: Neutral sentiment
+  - `OBJ`: Objective/No sentiment
+
+### Dataset Splits
+
+The dataset provides both balanced and unbalanced splits:
+
+- **Balanced**: Equal representation of all sentiment classes
+- **Unbalanced**: Natural distribution of sentiment classes
+- **Splits**: Train (70%), Validation (15%), Test (15%)
+
+### Line Index Files
+
+The numbered files (e.g., `4class-balanced-train.txt`) contain line indices that reference specific tweets in the main `Tweets.txt` file. To get a specific tweet:
+
+1. Read the line number from the split file
+2. Use that line number to index into `Tweets.txt`
+3. Extract the tweet text and sentiment label
+
+## Usage
+
+This dataset is used for:
+- Training sentiment analysis models
+- Evaluating model performance
+- Benchmarking Arabic NLP systems
+- Research in Arabic dialect sentiment analysis
+
+## Preprocessing
+
+The data goes through several preprocessing steps:
+1. Text cleaning and normalization
+2. Label mapping to integers
+3. Tokenization using MARBERT
+4. Dataset splitting and validation
+5. Class weight calculation for imbalanced learning
 
 ### Prerequisites
 - Python 3.8+
