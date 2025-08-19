@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import styled from 'styled-components';
 import { motion } from 'framer-motion';
 import { Send, RotateCcw, Zap, Target, BarChart3 } from 'lucide-react';
+import { analyzeSentiment } from '../utils/api';
 
 const PageContainer = styled.div`
   padding-top: 64px;
@@ -293,28 +294,30 @@ const DemoPage = () => {
   };
 
   const mockAnalyzeSentiment = async (text) => {
-    // Simulate API call delay
-    await new Promise(resolve => setTimeout(resolve, 1000 + Math.random() * 1000));
-    
+    await new Promise(resolve => setTimeout(resolve, 300));
     const sentiments = ['POS', 'NEG', 'NEUTRAL', 'OBJ'];
     const sentiment = sentiments[Math.floor(Math.random() * sentiments.length)];
-    const confidence = 0.7 + Math.random() * 0.3; // 0.7 to 1.0
-    const processingTime = 0.1 + Math.random() * 0.2; // 0.1 to 0.3 seconds
-    
-    return {
-      text,
-      sentiment,
-      confidence,
-      processing_time: processingTime,
-      dialect: 'gulf'
-    };
+    const confidence = 0.8;
+    return { text, sentiment, confidence, processing_time: 0.12, dialect: 'gulf' };
   };
 
   const handleAnalyze = async () => {
     if (!inputText.trim()) return;
     
     setIsAnalyzing(true);
-    const result = await mockAnalyzeSentiment(inputText);
+    let result;
+    try {
+      const apiRes = await analyzeSentiment(inputText);
+      result = {
+        text: apiRes.text,
+        sentiment: (apiRes.sentiment || '').toUpperCase(),
+        confidence: apiRes.confidence ?? 0,
+        processing_time: apiRes.processing_time ?? 0,
+        dialect: apiRes.dialect || 'gulf'
+      };
+    } catch (e) {
+      result = await mockAnalyzeSentiment(inputText);
+    }
     
     setResults(prev => [result, ...prev]);
     setInputText('');

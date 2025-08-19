@@ -1,3 +1,11 @@
+# Ignore problematic Windows reserved filename that breaks git add on Windows
+NUL
+
+# Local runtime logs/output
+uvicorn.out
+uvicorn_live.log
+react_dev.log
+
 # Model files (too large for Git)
 models/
 models/*.safetensors

@@ -12,6 +12,7 @@ from fastapi import FastAPI, HTTPException, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 from typing import List, Dict, Any, Optional
 import uvicorn
@@ -21,9 +22,12 @@ import os
 from pathlib import Path
 import sys
 
-# Add project root to path for imports
-project_root = Path(__file__).parent.parent.parent
-sys.path.append(str(project_root))
+# Add project root (the arabic-dialect-sentiment folder) to sys.path for imports
+# main.py lives in <project>/arabic-dialect-sentiment/backend/main.py
+# We need to add '<project>/arabic-dialect-sentiment' so that 'src' package is importable
+project_root = Path(__file__).resolve().parents[1]
+if str(project_root) not in sys.path:
+    sys.path.append(str(project_root))
 
 from src.data.preprocessor import ArabicTextPreprocessor
 from src.utils.config_loader import ConfigLoader
@@ -41,10 +45,15 @@ app = FastAPI(
     redoc_url="/redoc"
 )
 
-# CORS middleware for frontend communication
+# CORS middleware for frontend communication (dev server)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
+    allow_origins=[
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "http://localhost",
+        "http://127.0.0.1",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -94,6 +103,7 @@ class HealthResponse(BaseModel):
 sentiment_model = None
 tokenizer = None
 model_loaded = False
+model_labels = None  # List[str] mapping index->label
 
 def load_sentiment_model():
     """Load the trained sentiment analysis model."""
@@ -101,31 +111,50 @@ def load_sentiment_model():
     
     try:
         from transformers import AutoModelForSequenceClassification, AutoTokenizer
-        
-        # Try to load the fine-tuned model first
-        model_path = "models/fine_tuned"
-        if Path(model_path).exists():
-            logger.info("Loading fine-tuned model...")
-            tokenizer = AutoTokenizer.from_pretrained(model_path)
-            sentiment_model = AutoModelForSequenceClassification.from_pretrained(model_path)
+        import torch
+
+        # Try model paths in order of preference
+        candidate_paths = [
+            "models",  # default saved folder
+            "models/fine_tuned",
+            "models/baselines/transformer_baseline",
+        ]
+
+        selected_path = None
+        for candidate in candidate_paths:
+            if Path(candidate).exists():
+                selected_path = candidate
+                break
+
+        if selected_path:
+            logger.info(f"Loading model from: {selected_path}")
+            tokenizer = AutoTokenizer.from_pretrained(selected_path)
+            sentiment_model = AutoModelForSequenceClassification.from_pretrained(selected_path)
         else:
-            # Fall back to baseline model
-            baseline_path = "models/baselines/transformer_baseline"
-            if Path(baseline_path).exists():
-                logger.info("Loading baseline transformer model...")
-                tokenizer = AutoTokenizer.from_pretrained(baseline_path)
-                sentiment_model = AutoModelForSequenceClassification.from_pretrained(baseline_path)
-            else:
-                # Use pre-trained model as last resort
-                logger.info("Loading pre-trained AraBERT model...")
-                model_name = "aubmindlab/bert-base-arabertv2"
-                tokenizer = AutoTokenizer.from_pretrained(model_name)
-                sentiment_model = AutoModelForSequenceClassification.from_pretrained(
-                    model_name, num_labels=3
-                )
-        
+            # Use pre-trained model as last resort
+            logger.info("Loading pre-trained AraBERT model...")
+            model_name = "aubmindlab/bert-base-arabertv2"
+            tokenizer = AutoTokenizer.from_pretrained(model_name)
+            sentiment_model = AutoModelForSequenceClassification.from_pretrained(
+                model_name, num_labels=3
+            )
+
+        # Move model to device
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        sentiment_model.to(device)
+
+        # Prepare labels depending on number of classes
+        num_labels = getattr(sentiment_model.config, "num_labels", 3)
+        global model_labels
+        if num_labels == 4:
+            model_labels = ["NEG", "POS", "NEUTRAL", "OBJ"]
+        elif num_labels == 3:
+            model_labels = ["negative", "neutral", "positive"]
+        else:
+            model_labels = [str(i) for i in range(num_labels)]
+
         model_loaded = True
-        logger.info("Sentiment model loaded successfully")
+        logger.info(f"Sentiment model loaded successfully on {device}. Labels: {model_labels}")
         
     except Exception as e:
         logger.error(f"Failed to load sentiment model: {e}")
@@ -162,7 +191,10 @@ def predict_sentiment(text: str, include_explanation: bool = False) -> Dict[str,
             max_length=512,
             return_tensors="pt"
         )
-        
+        # Ensure tensors are on the same device as model
+        device = next(sentiment_model.parameters()).device
+        inputs = {k: v.to(device) for k, v in inputs.items()}
+
         # Get prediction
         with torch.no_grad():
             outputs = sentiment_model(**inputs)
@@ -170,9 +202,8 @@ def predict_sentiment(text: str, include_explanation: bool = False) -> Dict[str,
             predicted_class = torch.argmax(probabilities, dim=-1).item()
             confidence = probabilities[0][predicted_class].item()
         
-        # Map class to sentiment
-        sentiment_map = {0: "negative", 1: "neutral", 2: "positive"}
-        sentiment = sentiment_map.get(predicted_class, "unknown")
+        # Map class to sentiment using loaded labels
+        sentiment = model_labels[predicted_class] if model_labels and 0 <= predicted_class < len(model_labels) else "unknown"
         
         # Identify dialect
         dialect = preprocessor.identify_dialect(text) if preprocessor else "unknown"
@@ -196,7 +227,7 @@ def predict_sentiment(text: str, include_explanation: bool = False) -> Dict[str,
         logger.error(f"Error during sentiment prediction: {e}")
         raise HTTPException(status_code=500, detail=f"Prediction failed: {str(e)}")
 
-def generate_explanation(text: str, inputs: Dict, probabilities: torch.Tensor) -> Dict[str, Any]:
+def generate_explanation(text: str, inputs: Dict, probabilities):
     """
     Generate explanation for the sentiment prediction.
     
@@ -218,16 +249,14 @@ def generate_explanation(text: str, inputs: Dict, probabilities: torch.Tensor) -
         top_tokens = []
         if attention_weights is not None:
             # Extract most attended tokens
+            import torch as _torch
             attention_scores = attention_weights.mean(dim=1).squeeze()
-            top_indices = torch.topk(attention_scores, k=min(10, len(attention_scores))).indices
-            top_tokens = [tokenizer.decode([inputs['input_ids'][0][idx]]) for idx in top_indices]
+            k = min(10, attention_scores.numel())
+            top_indices = _torch.topk(attention_scores, k=k).indices
+            top_tokens = [tokenizer.decode([inputs['input_ids'][0][int(idx)]]) for idx in top_indices]
         
         # Get class probabilities
-        class_probs = {
-            "negative": probabilities[0][0].item(),
-            "neutral": probabilities[0][1].item(),
-            "positive": probabilities[0][2].item()
-        }
+        class_probs = {model_labels[i] if model_labels and i < len(model_labels) else str(i): float(probabilities[0][i].item()) for i in range(probabilities.shape[-1])}
         
         explanation = {
             "attention_tokens": top_tokens,
@@ -244,7 +273,7 @@ def generate_explanation(text: str, inputs: Dict, probabilities: torch.Tensor) -
 
 # API Endpoints
 
-@app.get("/", response_model=HealthResponse)
+@app.get("/api", response_model=HealthResponse)
 async def root():
     """Root endpoint with health information."""
     from datetime import datetime
@@ -256,7 +285,7 @@ async def root():
         timestamp=datetime.now().isoformat()
     )
 
-@app.get("/health", response_model=HealthResponse)
+@app.get("/api/health", response_model=HealthResponse)
 async def health_check():
     """Health check endpoint."""
     from datetime import datetime
@@ -271,7 +300,7 @@ async def health_check():
         timestamp=datetime.now().isoformat()
     )
 
-@app.post("/analyze", response_model=SentimentResponse)
+@app.post("/api/analyze", response_model=SentimentResponse)
 async def analyze_sentiment(request: SentimentRequest):
     """
     Analyze sentiment for a single text.
@@ -298,7 +327,7 @@ async def analyze_sentiment(request: SentimentRequest):
         logger.error(f"Sentiment analysis failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.post("/analyze/batch", response_model=BatchSentimentResponse)
+@app.post("/api/analyze/batch", response_model=BatchSentimentResponse)
 async def analyze_sentiment_batch(request: BatchSentimentRequest):
     """
     Analyze sentiment for multiple texts.
@@ -339,7 +368,7 @@ async def analyze_sentiment_batch(request: BatchSentimentRequest):
         logger.error(f"Batch sentiment analysis failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.post("/preprocess")
+@app.post("/api/preprocess")
 async def preprocess_text(text: str = Form(...)):
     """
     Preprocess Arabic text.
@@ -368,7 +397,7 @@ async def preprocess_text(text: str = Form(...)):
         logger.error(f"Text preprocessing failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.post("/upload")
+@app.post("/api/upload")
 async def upload_file(file: UploadFile = File(...)):
     """
     Upload a file for batch processing.
@@ -406,7 +435,7 @@ async def upload_file(file: UploadFile = File(...)):
         logger.error(f"File upload failed: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.get("/models/available")
+@app.get("/api/models/available")
 async def get_available_models():
     """Get information about available models."""
     models_info = {
@@ -423,7 +452,7 @@ async def get_available_models():
     
     return models_info
 
-@app.get("/dialects/supported")
+@app.get("/api/dialects/supported")
 async def get_supported_dialects():
     """Get list of supported Arabic dialects."""
     dialects = [
@@ -462,6 +491,17 @@ async def startup_event():
     load_sentiment_model()
     
     logger.info("API startup completed")
+
+# Serve frontend build if available
+try:
+    build_dir = Path(__file__).parent.parent / "arabic-sentiment-webapp" / "build"
+    if build_dir.exists():
+        app.mount("/", StaticFiles(directory=str(build_dir), html=True), name="frontend")
+        logger.info(f"Mounted frontend build at '/': {build_dir}")
+    else:
+        logger.warning(f"Frontend build directory not found: {build_dir}")
+except Exception as e:
+    logger.warning(f"Failed to mount frontend build: {e}")
 
 @app.on_event("shutdown")
 async def shutdown_event():

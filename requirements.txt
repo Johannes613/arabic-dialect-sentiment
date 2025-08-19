@@ -11,10 +11,9 @@ numpy>=1.24.0
 scikit-learn>=1.3.0
 scipy>=1.10.0
 
-# Arabic NLP Specific
+# Arabic NLP Specific (tashkeel is optional and not available on PyPI for py3.13)
 arabert>=0.1.0
 pyarabic>=0.6.14
-tashkeel>=0.0.1
 
 # Web Framework
 fastapi>=0.100.0
