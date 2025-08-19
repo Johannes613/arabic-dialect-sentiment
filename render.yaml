@@ -1,0 +1,27 @@
+services:
+  - type: web
+    name: arabic-sentiment-backend
+    env: python
+    plan: free
+    region: frankfurt
+    runtime: python
+    buildCommand: "pip install --upgrade pip && pip install -r requirements.txt"
+    startCommand: "gunicorn -w 2 -k uvicorn.workers.UvicornWorker backend.main:app --bind 0.0.0.0:$PORT"
+    autoDeploy: true
+    healthCheckPath: /api/health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.10.13
+      - key: ALLOWED_ORIGINS
+        value: "*"
+      - key: TRANSFORMERS_CACHE
+        value: /opt/render/project/.cache/huggingface
+      - key: HF_HOME
+        value: /opt/render/project/.cache/huggingface
+      - key: MODEL_CACHE_DIR
+        value: models
+    disk:
+      name: model-cache
+      mountPath: /opt/render/project/.cache
+      sizeGB: 10
+

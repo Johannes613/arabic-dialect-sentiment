@@ -29,6 +29,21 @@
 
   <hr/>
 
+  <h2>Deployment (Render)</h2>
+  <p>
+    This repository includes a <code>render.yaml</code> to deploy the FastAPI backend to Render as a Web Service.
+    The service uses Gunicorn with Uvicorn workers and exposes health at <code>/api/health</code>.
+  </p>
+  <ol>
+    <li>Push the repo to GitHub (already done).</li>
+    <li>In Render, create a new Web Service from this repo. Render will detect <code>render.yaml</code>.</li>
+    <li>Default start command: <code>gunicorn -w 2 -k uvicorn.workers.UvicornWorker backend.main:app --bind 0.0.0.0:$PORT</code></li>
+    <li>Optional: set <code>ALLOWED_ORIGINS</code> env var to your frontend URL(s) for CORS.</li>
+    <li>Model cache is persisted via a mounted disk to speed up cold starts.</li>
+  </ol>
+
+  <hr/>
+
   <h2>Project Overview</h2>
   <p>This project addresses the critical challenge of sentiment analysis in Arabic dialects, particularly Gulf Arabic, which has been historically underrepresented in NLP research. The solution combines advanced transformer architecture with domain-adaptive pretraining and sophisticated data augmentation techniques.</p>
 

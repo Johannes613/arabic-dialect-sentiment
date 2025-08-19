@@ -45,15 +45,14 @@ app = FastAPI(
     redoc_url="/redoc"
 )
 
-# CORS middleware for frontend communication (dev server)
+# CORS middleware for frontend communication (dev/prod)
+# Configure via ALLOWED_ORIGINS env var (comma-separated). Defaults to '*'
+allowed_origins_env = os.getenv("ALLOWED_ORIGINS", "*")
+allowed_origins = [o.strip() for o in allowed_origins_env.split(",") if o.strip()] if allowed_origins_env != "*" else ["*"]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
-        "http://localhost",
-        "http://127.0.0.1",
-    ],
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
