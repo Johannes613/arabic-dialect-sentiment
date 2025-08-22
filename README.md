@@ -26,6 +26,8 @@
       https://arabic-dialect-sentiment.vercel.app
     </a>
   </p>
+  <img width="1853" height="894" alt="Image" src="https://github.com/user-attachments/assets/4084b587-28d8-4df0-b529-00adb9e73fa2" />
+
 
 
 
